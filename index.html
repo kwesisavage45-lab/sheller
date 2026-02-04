@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en" x-data="{ darkMode: localStorage.getItem('darkMode') === 'true' }" :class="{ 'dark': darkMode }">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PrimeSheller Deals | Premium Phones</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        [x-cloak] { display: none !important; }
+        
+        body { 
+            font-family: 'Inter', sans-serif; 
+            transition: background-color 0.5s ease, color 0.5s ease;
+            min-height: 100vh;
+        }
+
+        .light-mode-bg { background: linear-gradient(135deg, #f5f3ff 0%, #ffffff 100%); }
+        .dark-mode-bg { background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); }
+
+        .violet-gradient { background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); }
+        
+        .glass { 
+            backdrop-filter: blur(16px) saturate(180%);
+            background: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: background 0.3s ease;
+        }
+
+        .dark .glass {
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-glass { 
+            backdrop-filter: blur(12px); 
+            background: rgba(255, 255, 255, 0.8); 
+            transition: background 0.3s ease;
+        }
+        .dark .nav-glass {
+            background: rgba(15, 23, 42, 0.8);
+        }
+
+        .phone-grid {
+            display: grid;
+            gap: 1rem;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        @media (min-width: 1024px) { 
+            .phone-grid { 
+                gap: 1.5rem;
+                grid-template-columns: repeat(4, minmax(0, 1fr)); 
+            } 
+        }
+        
+        .reveal-hero { 
+            animation: glassAppear 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
+        }
+
+        @keyframes glassAppear {
+            from { opacity: 0; transform: scale(0.9) translateY(30px); filter: blur(10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+        }
+
+        footer { background: #1e1b4b; }
+        .dark footer { background: #020617; }
+    </style>
+</head>
+<body 
+    :class="darkMode ? 'dark-mode-bg text-white' : 'light-mode-bg text-indigo-950'"
+    x-data="{ 
+    page: 'home',
+    adminOpen: false, 
+    isAdminAuthenticated: false,
+    cartOpen: false,
+    mobileMenuOpen: false,
+    addedNotify: false,
+    searchQuery: '',
+    whatsappNumber: '233202382200', 
+    cart: [],
+    products: [],
+    contactName: '',
+    contactMessage: '',
+    customerPhone: '',
+    deliveryAddress: '',
+    
+    // FIX: Updated lightbox state to handle navigation
+    lightboxActive: false,
+    lightboxProduct: null,
+    lightboxIndex: 0,
+
+    editingProduct: null,
+
+    init() {
+        this.$watch('darkMode', val => localStorage.setItem('darkMode', val));
+        
+        const saved = localStorage.getItem('top_sheller_db');
+        if (saved) {
+            this.products = JSON.parse(saved);
+        } else {
+            this.products = [
+                { id: 1, name: 'iPhone 15 Pro Max', price: '1299', category: 'phone', images: ['https://images.unsplash.com/photo-1696446701796-da61225697cc?w=800'], description: 'Titanium design, A17 Pro chip.', inStock: true, currentImg: 0 },
+                { id: 2, name: 'Tech Bundle 01', price: '1500', category: 'accessory', images: ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'], description: 'Watch and phone combo.', inStock: true, currentImg: 0 }
+            ];
+            this.save();
+        }
+    },
+
+    tryAdminAccess() {
+        if(this.isAdminAuthenticated) {
+            this.adminOpen = true;
+            return;
+        }
+        let pw = prompt('Enter Admin Password:');
+        if(pw === 'sheller') {
+            this.isAdminAuthenticated = true;
+            this.adminOpen = true;
+        } else {
+            alert('Incorrect Password');
+        }
+    },
+
+    adminLogout() {
+        this.isAdminAuthenticated = false;
+        this.adminOpen = false;
+    },
+
+    save() { localStorage.setItem('top_sheller_db', JSON.stringify(this.products)); },
+    
+    addProduct() {
+        this.editingProduct = { id: Date.now(), name: '', price: '', category: 'phone', images: '', description: '', inStock: true };
+    },
+    saveProduct() {
+        if (typeof this.editingProduct.images === 'string') {
+            this.editingProduct.images = this.editingProduct.images
+                .split(',')
+                .map(url => url.trim())
+                .filter(url => url !== '');
+        }
+        
+        const index = this.products.findIndex(p => p.id === this.editingProduct.id);
+        if (index > -1) {
+            this.products[index] = {...this.editingProduct, currentImg: 0};
+        } else {
+            this.products.push({...this.editingProduct, currentImg: 0});
+        }
+        this.save();
+        this.editingProduct = null;
+    },
+    deleteProduct(id) {
+        if(confirm('Delete this item?')) {
+            this.products = this.products.filter(p => p.id !== id);
+            this.save();
+            this.editingProduct = null;
+        }
+    },
+    addToCart(product) {
+        if(!product.inStock) return;
+        this.cart.push({...product, cartId: Date.now()});
+        this.addedNotify = true;
+        setTimeout(() => this.addedNotify = false, 2000);
+    },
+    getCartTotal() {
+        let total = this.cart.reduce((acc, p) => acc + parseInt(p.price || 0), 0);
+        return 'GHC ' + total.toLocaleString();
+    },
+    
+    // FIX: Lightbox navigation helper
+    openLightbox(product) {
+        this.lightboxProduct = product;
+        this.lightboxIndex = product.currentImg;
+        this.lightboxActive = true;
+    },
+    nextLightboxImg() {
+        this.lightboxIndex = (this.lightboxIndex + 1) % this.lightboxProduct.images.length;
+    },
+    prevLightboxImg() {
+        this.lightboxIndex = (this.lightboxIndex - 1 + this.lightboxProduct.images.length) % this.lightboxProduct.images.length;
+    },
+
+    nextImg(p) { p.currentImg = (p.currentImg + 1) % p.images.length; },
+    prevImg(p) { p.currentImg = (p.currentImg - 1 + p.images.length) % p.images.length; }
+}">
+
+    <div x-show="addedNotify" x-transition x-cloak class="fixed bottom-10 left-1/2 -translate-x-1/2 z-[200] bg-indigo-600 text-white px-8 py-4 rounded-full shadow-2xl font-bold">
+        Added to Cart ✓
+    </div>
+
+    <nav class="nav-glass fixed top-0 w-full z-50 px-6 py-4 flex items-center justify-between border-b border-indigo-100 dark:border-white/10">
+        <div class="flex items-center space-x-4">
+            <button @click="mobileMenuOpen = true" class="md:hidden text-indigo-950 dark:text-white focus:outline-none">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"/></svg>
+            </button>
+            <div @dblclick="tryAdminAccess()" class="text-2xl font-extrabold tracking-tighter cursor-pointer select-none dark:text-white">
+                Prime Sheller<span class="text-indigo-600">Deals</span>
+            </div>
+        </div>
+        
+        <div class="hidden md:flex items-center space-x-8 font-bold text-xs uppercase tracking-widest">
+            <button @click="page = 'home'" :class="page === 'home' ? 'text-indigo-600' : 'text-indigo-900/40 dark:text-white/40'">Home</button>
+            <button @click="page = 'phones'" :class="page === 'phones' ? 'text-indigo-600' : 'text-indigo-900/40 dark:text-white/40'">Phones</button>
+            <button @click="page = 'accessories'" :class="page === 'accessories' ? 'text-indigo-600' : 'text-indigo-900/40 dark:text-white/40'">Accessories</button>
+            <button @click="page = 'contact'" :class="page === 'contact' ? 'text-indigo-600' : 'text-indigo-900/40 dark:text-white/40'">Contact</button>
+            
+            <button @click="darkMode = !darkMode" class="p-2 bg-indigo-50 dark:bg-white/10 rounded-xl transition-all hover:scale-110">
+                <template x-if="!darkMode">
+                    <svg class="w-5 h-5 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
+                </template>
+                <template x-if="darkMode">
+                    <svg class="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"></path></svg>
+                </template>
+            </button>
+        </div>
+
+        <div @click="cartOpen = true" class="relative cursor-pointer bg-white dark:bg-white/10 border border-indigo-50 dark:border-white/10 p-2 rounded-full shadow-sm">
+            <svg class="w-6 h-6 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+            <span x-show="cart.length > 0" class="absolute -top-1 -right-1 bg-indigo-600 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold" x-text="cart.length"></span>
+        </div>
+    </nav>
+
+    <div x-show="mobileMenuOpen" x-cloak class="fixed inset-0 z-[1000]">
+        <div class="absolute inset-0 bg-indigo-950/60 backdrop-blur-md" @click="mobileMenuOpen = false"></div>
+        <div x-transition:enter="transition ease-out duration-300" x-transition:enter-start="-translate-x-full" x-transition:enter-end="translate-x-0" class="absolute left-0 top-0 w-80 bg-white dark:bg-slate-900 h-full p-8 shadow-2xl flex flex-col">
+            <div class="flex justify-between items-center mb-10">
+                <span class="text-xl font-black text-indigo-950 dark:text-white uppercase tracking-tighter">Menu</span>
+                <button @click="mobileMenuOpen = false" class="text-4xl dark:text-white">&times;</button>
+            </div>
+            <div class="mb-8">
+                <input type="text" x-model="searchQuery" @click="if(page==='home') page='phones'; mobileMenuOpen = false" placeholder="Search products..." class="w-full bg-indigo-50 dark:bg-slate-800 border border-indigo-100 dark:border-slate-700 dark:text-white rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-600 outline-none">
+            </div>
+            <div class="flex flex-col space-y-6">
+                <button @click="page = 'home'; mobileMenuOpen = false" class="text-left font-black text-indigo-950 dark:text-white text-xl border-b pb-4 border-indigo-50 dark:border-slate-800">Home</button>
+                <button @click="page = 'phones'; mobileMenuOpen = false" class="text-left font-black text-indigo-950 dark:text-white text-xl border-b pb-4 border-indigo-50 dark:border-slate-800">Phones</button>
+                <button @click="page = 'accessories'; mobileMenuOpen = false" class="text-left font-black text-indigo-950 dark:text-white text-xl border-b pb-4 border-indigo-50 dark:border-slate-800">Accessories</button>
+                <button @click="page = 'contact'; mobileMenuOpen = false" class="text-left font-black text-indigo-950 dark:text-white text-xl border-b pb-4 border-indigo-50 dark:border-slate-800">Contact</button>
+                <button @click="darkMode = !darkMode" class="text-left font-black text-indigo-600 dark:text-yellow-400 text-sm uppercase tracking-widest">
+                    <span x-text="darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'"></span>
+                </button>
+            </div>
+            <div class="mt-auto pt-10 text-[10px] font-bold text-indigo-300 uppercase tracking-widest">
+                Prime Sheller Deals © 2026
+            </div>
+        </div>
+    </div>
+
+    <div class="pt-24 pb-20">
+        <template x-if="page === 'home'">
+            <div class="px-6 lg:px-20 min-h-[85vh] flex flex-col items-center justify-center text-center">
+                <div class="reveal-hero glass p-10 lg:p-16 rounded-[4rem] shadow-2xl border border-white/50 max-w-6xl w-full">
+                    <span class="bg-indigo-600 text-white px-5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] mb-8 inline-block">Affordable Premium Quality</span>
+                    <h1 class="text-6xl lg:text-8xl font-black tracking-tighter mb-6 leading-none text-indigo-950 dark:text-white">
+                        HOME OF <br><span class="text-indigo-600">QUALITY PREMIUM GADGETS</span>
+                    </h1>
+                    <p class="text-indigo-900/60 dark:text-white/60 max-w-xl mx-auto text-lg mb-10 font-medium">Curated high-end mobile devices and accessories. All authentic, all in one place.</p>
+                    
+                    <div class="relative group">
+                        <img src="https://images.unsplash.com/photo-1468495244123-6c6c332eeece?w=1200" class="w-full rounded-[3rem] shadow-2xl border-[12px] border-white/50 dark:border-white/10 transition duration-700 group-hover:scale-[1.01]">
+                        <div class="absolute -bottom-8 left-1/2 -translate-x-1/2">
+                            <button @click="page = 'phones'" class="bg-indigo-600 text-white px-14 py-5 rounded-2xl font-black shadow-2xl hover:bg-indigo-700 hover:scale-105 transition-all uppercase tracking-widest text-sm">Explore Store</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <template x-if="page === 'phones' || page === 'accessories'">
+            <div class="px-6 lg:px-20 max-w-7xl mx-auto">
+                <div class="flex flex-col md:flex-row justify-between items-center mb-16 gap-6">
+                    <h2 class="text-5xl font-black text-indigo-950 dark:text-white" x-text="page === 'phones' ? 'Latest Phones' : 'Essential Gadgets'"></h2>
+                    <input type="text" x-model="searchQuery" placeholder="Filter products..." class="w-full md:w-80 bg-white dark:bg-slate-800 border border-indigo-100 dark:border-slate-700 dark:text-white rounded-2xl px-6 py-4 outline-none focus:ring-4 focus:ring-indigo-500/10 shadow-sm">
+                </div>
+                
+                <div class="phone-grid">
+                    <template x-for="p in products.filter(x => (page === 'phones' ? x.category === 'phone' : x.category === 'accessory') && x.name.toLowerCase().includes(searchQuery.toLowerCase()))" :key="p.id">
+                        <div class="glass rounded-[1.5rem] md:rounded-[2.5rem] p-4 md:p-6 hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 relative flex flex-col group">
+                            <div x-show="!p.inStock" class="absolute top-4 right-4 md:top-6 md:right-6 bg-red-500 text-white text-[8px] md:text-[10px] px-2 py-1 rounded-full font-black z-10 uppercase shadow-lg">Sold Out</div>
+                            
+                            <div class="h-32 md:h-64 mb-4 md:mb-6 relative overflow-hidden bg-white/50 dark:bg-white/10 rounded-2xl md:rounded-3xl p-2 md:p-4">
+                                <img :src="Array.isArray(p.images) ? p.images[p.currentImg] : ''" 
+                                     @click="openLightbox(p)" 
+                                     class="h-full w-full object-contain cursor-zoom-in group-hover:scale-110 transition duration-700">
+                                
+                                <template x-if="p.images && p.images.length > 1">
+                                    <div class="absolute inset-x-2 top-1/2 -translate-y-1/2 flex justify-between opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button @click.stop="prevImg(p)" class="bg-white/90 dark:bg-indigo-950/90 w-6 h-6 md:w-10 md:h-10 rounded-full shadow-lg flex items-center justify-center font-bold text-indigo-600 dark:text-indigo-400 text-xs md:text-base transition-transform hover:scale-110 active:scale-95">←</button>
+                                        <button @click.stop="nextImg(p)" class="bg-white/90 dark:bg-indigo-950/90 w-6 h-6 md:w-10 md:h-10 rounded-full shadow-lg flex items-center justify-center font-bold text-indigo-600 dark:text-indigo-400 text-xs md:text-base transition-transform hover:scale-110 active:scale-95">→</button>
+                                    </div>
+                                </template>
+                            </div>
+
+                            <h3 class="font-extrabold text-sm md:text-xl mb-1 text-indigo-950 dark:text-white truncate" x-text="p.name"></h3>
+                            <p class="text-indigo-900/40 dark:text-white/40 text-[10px] md:text-xs mb-2 md:mb-4 line-clamp-2 leading-relaxed" x-text="p.description"></p>
+                            <p class="text-indigo-600 dark:text-indigo-400 font-black text-base md:text-2xl mb-4 md:mb-6" x-text="'GHC ' + p.price"></p>
+                            
+                            <button @click="addToCart(p)" 
+                                    :disabled="!p.inStock"
+                                    :class="p.inStock ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200' : 'bg-gray-200 dark:bg-slate-700 text-gray-400'"
+                                    class="w-full text-white py-3 md:py-4 rounded-xl md:rounded-2xl font-black transition shadow-xl mt-auto text-[10px] md:text-sm uppercase tracking-widest">
+                                <span x-text="p.inStock ? 'Add to Cart' : 'Out of Stock'"></span>
+                            </button>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+
+        <template x-if="page === 'contact'">
+            <div class="px-6 lg:px-20 max-w-5xl mx-auto py-10">
+                <div class="grid md:grid-cols-2 gap-10 glass p-12 rounded-[3.5rem] shadow-2xl">
+                    <div>
+                        <h2 class="text-6xl font-black text-indigo-950 dark:text-white mb-6">Let's Talk.</h2>
+                        <p class="text-indigo-900/50 dark:text-white/50 mb-10 font-medium">Ready to upgrade? Message our team for bulk orders or specific device requests.</p>
+                        <div class="space-y-6">
+                            <div class="flex items-center space-x-4">
+                                <div class="bg-indigo-600 p-3 rounded-2xl text-white">📱</div>
+                                <span class="font-bold text-indigo-950 dark:text-white">0551611280/0202382200</span>
+                            </div>
+                            <div class="flex items-center space-x-4">
+                                <div class="bg-indigo-600 p-3 rounded-2xl text-white">📍</div>
+                                <span class="font-bold text-indigo-950 dark:text-white">Kasoa/Circle Mall</span>
+                            </div>
+                        </div>
+                    </div>
+                    <form @submit.prevent="let msg = encodeURIComponent(`Name: ${contactName}\nMessage: ${contactMessage}`); window.open(`https://wa.me/${whatsappNumber}?text=${msg}`, '_blank')" class="space-y-4">
+                        <input type="text" x-model="contactName" placeholder="Full Name" class="w-full bg-white dark:bg-slate-800 border border-indigo-50 dark:border-slate-700 dark:text-white rounded-2xl px-6 py-4 outline-none focus:ring-4 focus:ring-indigo-500/10 shadow-sm" required>
+                        <textarea x-model="contactMessage" placeholder="How can we help?" class="w-full bg-white dark:bg-slate-800 border border-indigo-50 dark:border-slate-700 dark:text-white rounded-2xl px-6 py-4 h-40 outline-none focus:ring-4 focus:ring-indigo-500/10 shadow-sm" required></textarea>
+                        <button type="submit" class="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white py-5 rounded-2xl font-black shadow-xl hover:scale-[1.02] transition">Send via WhatsApp</button>
+                    </form>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <footer class="text-white py-24 px-6 lg:px-20">
+        <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-16">
+            <div>
+                <div class="text-3xl font-black mb-6">PrimeSheller<span class="text-indigo-400">Deals</span></div>
+                <p class="text-indigo-200/50 max-w-sm font-medium">The #1 destination for authentic premium mobile devices and accessories nationwide.</p>
+            </div>
+            <div class="flex justify-end space-x-12">
+                <div>
+                    <h4 class="font-black mb-6 uppercase text-[10px] tracking-[0.3em] text-indigo-400">Shop</h4>
+                    <ul class="space-y-4 font-bold text-sm">
+                        <li><button @click="page = 'phones'" class="hover:text-indigo-400 transition">Phones</button></li>
+                        <li><button @click="page = 'accessories'" class="hover:text-indigo-400 transition">Accessories</button></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-black mb-6 uppercase text-[10px] tracking-[0.3em] text-indigo-400">Socials</h4>
+                    <div class="flex space-x-4">
+                        <a href="mailto:bawahukasha205@gmail.com" class="bg-white/10 p-4 rounded-2xl hover:bg-indigo-600 transition flex items-center justify-center" title="Email Us">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002 -2V7a2 2 0 00-2 -2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                        </a>
+                        <a href="https://www.instagram.com/halalways_sheller?igsh=MXBwaHJwM21lNno0eg%3D%3D&utm_source=qr" class="bg-white/10 p-4 rounded-2xl hover:bg-indigo-600 transition">IG</a>
+                        <a href="https://www.snapchat.com/@topsheller05?locale=en-US%2Cen%3Bq%3D0.9&share_id=oHA1WsEhTGq0t492I2cUGQ" class="bg-white/10 p-4 rounded-2xl hover:bg-indigo-600 transition">Snapchat</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="max-w-7xl mx-auto pt-12 mt-12 border-t border-white/10 text-[10px] font-black tracking-widest text-indigo-400/50 flex justify-between">
+            <span>© 2026 PRIMESHELLER DEALS | DESIGNED BY OG RYDER😎!. </span>
+            <span>QUALITY PREMIUM PHONES PLUG</span>
+        </div>
+    </footer>
+
+    <div x-show="cartOpen" x-cloak class="fixed inset-0 z-[1100]">
+        <div class="absolute inset-0 bg-indigo-950/40 backdrop-blur-md" @click="cartOpen = false"></div>
+        <div class="absolute right-0 top-0 w-full max-w-md bg-white dark:bg-slate-900 h-full p-6 md:p-10 shadow-2xl flex flex-col">
+            <div class="flex justify-between items-center mb-12">
+                <h2 class="text-3xl md:text-4xl font-black text-indigo-950 dark:text-white">Cart</h2>
+                <button @click="cartOpen = false" class="text-4xl hover:rotate-90 transition dark:text-white">&times;</button>
+            </div>
+            <div class="flex-1 overflow-y-auto space-y-6">
+                <template x-for="item in cart" :key="item.cartId">
+                    <div class="flex items-center justify-between border-b pb-6 border-indigo-50 dark:border-slate-800">
+                        <div class="flex items-center">
+                            <img :src="item.images[0]" class="w-16 h-16 md:w-20 md:h-20 object-contain mr-4 bg-indigo-50 dark:bg-slate-800 rounded-2xl p-2">
+                            <div>
+                                <p class="font-black text-indigo-950 dark:text-white text-sm md:text-base" x-text="item.name"></p>
+                                <p class="text-indigo-600 dark:text-indigo-400 font-black text-xs md:text-sm" x-text="'GHC ' + item.price"></p>
+                            </div>
+                        </div>
+                        <button @click="cart = cart.filter(c => c.cartId !== item.cartId)" class="text-red-500 font-black text-[10px] uppercase tracking-widest bg-red-50 dark:bg-red-900/20 px-3 py-1 rounded-lg">Remove</button>
+                    </div>
+                </template>
+                <div x-show="cart.length === 0" class="text-center py-20 text-indigo-900/20 font-black uppercase tracking-widest text-xs italic">Your haul is empty</div>
+            </div>
+            <div class="pt-8 border-t border-indigo-100 dark:border-slate-800" x-show="cart.length > 0">
+                <div class="space-y-4 mb-8">
+                    <div>
+                        <label class="text-[10px] font-black uppercase tracking-widest text-indigo-300 mb-2 block">Phone Number</label>
+                        <input type="tel" x-model="customerPhone" placeholder="e.g. 055 123 4567" class="w-full bg-indigo-50 dark:bg-slate-800 border border-indigo-100 dark:border-slate-700 dark:text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-600 font-bold text-sm">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-black uppercase tracking-widest text-indigo-300 mb-2 block">Delivery Address</label>
+                        <input type="text" x-model="deliveryAddress" placeholder="Location/Street/House No." class="w-full bg-indigo-50 dark:bg-slate-800 border border-indigo-100 dark:border-slate-700 dark:text-white rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-600 font-bold text-sm">
+                    </div>
+                </div>
+                <div class="flex justify-between mb-8 text-2xl md:text-3xl font-black text-indigo-950 dark:text-white"><span>Total</span><span x-text="getCartTotal()"></span></div>
+                <button @click="if(!customerPhone || !deliveryAddress) { alert('Please enter phone and address!'); return; }
+                        let orderList = cart.map(i => '- ' + i.name).join('\n');
+                        let rawMsg = `Order Details:\n${orderList}\n\nTotal: ${getCartTotal()}\nPhone: ${customerPhone}\nAddress: ${deliveryAddress}`;
+                        window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(rawMsg)}`, '_blank')" 
+                        class="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white py-5 md:py-6 rounded-2xl md:rounded-3xl font-black hover:opacity-90 transition-all shadow-2xl uppercase tracking-widest text-xs md:text-sm">
+                    Proceed Checkout
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div x-show="adminOpen" x-cloak class="fixed inset-0 z-[1200] bg-indigo-950/90 backdrop-blur-2xl flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-900 w-full max-w-6xl h-[85vh] rounded-[3.5rem] overflow-hidden flex flex-col shadow-2xl">
+            <div class="p-8 border-b dark:border-slate-800 flex justify-between items-center bg-indigo-50/50 dark:bg-slate-800/50">
+                <div class="flex items-center space-x-6">
+                    <h2 class="text-3xl font-black text-indigo-950 dark:text-white">Inventory Control</h2>
+                    <button @click="addProduct()" class="bg-indigo-600 text-white px-8 py-3 rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg">+ Add New</button>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button @click="adminOpen = false" class="bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-white px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest">Close</button>
+                    <button @click="adminLogout()" class="bg-red-500 text-white px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg">Logout</button>
+                </div>
+            </div>
+            
+            <div class="flex-1 flex overflow-hidden">
+                <div class="w-1/3 border-r dark:border-slate-800 overflow-y-auto p-6 bg-gray-50/30 dark:bg-slate-800/20">
+                    <template x-for="p in products" :key="p.id">
+                        <div @click="editingProduct = {...p}" 
+                             :class="editingProduct && editingProduct.id === p.id ? 'bg-white dark:bg-slate-800 shadow-xl border-indigo-200 translate-x-2' : 'border-transparent'"
+                             class="p-5 rounded-3xl border mb-3 cursor-pointer transition-all hover:bg-white dark:hover:bg-slate-800 flex items-center">
+                             <img :src="p.images[0]" class="w-12 h-12 rounded-lg object-contain bg-white dark:bg-slate-700 mr-4">
+                             <div>
+                                <p class="font-black text-sm text-indigo-950 dark:text-white" x-text="p.name"></p>
+                                <p class="text-xs text-indigo-600 dark:text-indigo-400 font-bold" x-text="'GHC ' + p.price"></p>
+                             </div>
+                        </div>
+                    </template>
+                </div>
+                
+                <div class="flex-1 overflow-y-auto p-12">
+                    <template x-if="editingProduct">
+                        <div class="space-y-8">
+                            <div class="grid grid-cols-2 gap-6">
+                                <div><label class="text-[10px] font-black uppercase tracking-widest text-indigo-300">Price (GHC)</label><input type="number" x-model="editingProduct.price" class="w-full bg-indigo-50/50 dark:bg-slate-800 border border-indigo-100 dark:border-slate-700 p-5 rounded-2xl mt-2 outline-none focus:bg-white dark:focus:bg-slate-800 dark:text-white"></div>
+                                <div><label class="text-[10px] font-black uppercase tracking-widest text-indigo-300">Product Name</label><input type="text" x-model="editingProduct.name" class="w-full bg-indigo-50/50 dark:bg-slate-800 border border-indigo-100 dark:border-slate-700 p-5 rounded-2xl mt-2 outline-none focus:bg-white dark:focus:bg-slate-800 dark:text-white"></div>
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-black uppercase tracking-widest text-indigo-300">Product Description</label>
+                                <textarea x-model="editingProduct.description" class="w-full bg-indigo-50/50 dark:bg-slate-800 border border-indigo-100 dark:border-slate-700 p-5 rounded-2xl mt-2 h-32 outline-none focus:bg-white dark:focus:bg-slate-800 dark:text-white" placeholder="Enter key features and specs..."></textarea>
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-black uppercase tracking-widest text-indigo-300">Category</label>
+                                <select x-model="editingProduct.category" class="w-full bg-indigo-50/50 dark:bg-slate-800 border border-indigo-100 dark:border-slate-700 p-5 rounded-2xl mt-2 outline-none dark:text-white">
+                                    <option value="phone">Smartphone</option>
+                                    <option value="accessory">Accessory</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-black uppercase tracking-widest text-indigo-300">Image URLs (Comma separated)</label>
+                                <textarea x-model="editingProduct.images" class="w-full bg-indigo-50/50 dark:bg-slate-800 border border-indigo-100 dark:border-slate-700 p-5 rounded-2xl mt-2 h-24 outline-none dark:text-white"></textarea>
+                            </div>
+                            <div class="flex items-center space-x-4 bg-indigo-50 dark:bg-slate-800 p-6 rounded-3xl">
+                                <input type="checkbox" x-model="editingProduct.inStock" class="w-6 h-6 accent-indigo-600">
+                                <label class="font-black text-indigo-950 dark:text-white uppercase tracking-widest text-xs">Available for Sale</label>
+                            </div>
+                            <div class="flex space-x-6">
+                                <button @click="saveProduct()" class="flex-1 bg-indigo-600 text-white py-5 rounded-2xl font-black shadow-2xl hover:bg-indigo-700 transition-all uppercase tracking-widest text-sm">Update Inventory</button>
+                                <button @click="deleteProduct(editingProduct.id)" class="px-8 text-red-500 font-black uppercase tracking-widest text-xs hover:bg-red-50 dark:hover:bg-red-900/20 rounded-2xl">Delete</button>
+                            </div>
+                        </div>
+                    </template>
+                    <template x-if="!editingProduct">
+                        <div class="h-full flex flex-col items-center justify-center text-indigo-200 dark:text-slate-600 space-y-4">
+                            <div class="text-6xl">⚙📲</div>
+                            <div class="font-black uppercase tracking-widest text-sm">Select an item to edit details</div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div x-show="lightboxActive" x-cloak class="fixed inset-0 z-[1300] bg-indigo-950/95 flex items-center justify-center p-4 md:p-6" @click="lightboxActive = false">
+        
+        <div class="relative max-w-full max-h-full flex items-center justify-center" @click.stop>
+            
+            <img :src="lightboxProduct ? lightboxProduct.images[lightboxIndex] : ''" 
+                 class="max-w-full max-h-[85vh] md:max-h-[90vh] rounded-3xl shadow-2xl border-4 border-white/20 object-contain">
+
+            <template x-if="lightboxProduct && lightboxProduct.images.length > 1">
+                <div class="absolute inset-x-[-20px] md:inset-x-[-60px] top-1/2 -translate-y-1/2 flex justify-between w-[calc(100%+40px)] md:w-[calc(100%+120px)] pointer-events-none">
+                    <button @click="prevLightboxImg()" class="pointer-events-auto bg-white/20 hover:bg-white/40 backdrop-blur-md w-10 h-10 md:w-16 md:h-16 rounded-full flex items-center justify-center font-black text-white text-xl md:text-3xl transition-all hover:scale-110 active:scale-90">←</button>
+                    <button @click="nextLightboxImg()" class="pointer-events-auto bg-white/20 hover:bg-white/40 backdrop-blur-md w-10 h-10 md:w-16 md:h-16 rounded-full flex items-center justify-center font-black text-white text-xl md:text-3xl transition-all hover:scale-110 active:scale-90">→</button>
+                </div>
+            </template>
+
+            <button @click="lightboxActive = false" class="absolute -top-10 right-0 md:-top-12 md:-right-12 text-white text-4xl md:text-6xl font-light hover:rotate-90 transition-transform">&times;</button>
+            
+            <div class="absolute -bottom-8 left-1/2 -translate-x-1/2 text-white/50 text-xs font-black uppercase tracking-widest" x-text="(lightboxIndex + 1) + ' / ' + (lightboxProduct ? lightboxProduct.images.length : 0)"></div>
+        </div>
+    </div>
+
+</body>
+</html>
