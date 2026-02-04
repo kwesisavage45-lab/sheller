@@ -449,7 +449,7 @@
                 <template x-if="editingProduct">
                     <div class="space-y-6 md:space-y-8">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                            <div><label class="text-[10px] font-black uppercase tracking-widest text-indigo-300">Price (GHC)</label><input type="number" x-model="editingProduct.price" class="w-full bg-indigo-50/50 dark:bg-slate-800 border border-indigo-100 dark:border-slate-700 p-4 md:p-5 rounded-xl md:rounded-2xl mt-2 outline-none focus:bg-white dark:focus:bg-slate-800 dark:text-white"></div>
+                            <div><label class="text-[10px] font-black uppercase tracking-widest text-indigo-300">Price (GHC)</label><input type="text" x-model="editingProduct.price" class="w-full bg-indigo-50/50 dark:bg-slate-800 border border-indigo-100 dark:border-slate-700 p-4 md:p-5 rounded-xl md:rounded-2xl mt-2 outline-none focus:bg-white dark:focus:bg-slate-800 dark:text-white"></div>
                             <div><label class="text-[10px] font-black uppercase tracking-widest text-indigo-300">Product Name</label><input type="text" x-model="editingProduct.name" class="w-full bg-indigo-50/50 dark:bg-slate-800 border border-indigo-100 dark:border-slate-700 p-4 md:p-5 rounded-xl md:rounded-2xl mt-2 outline-none focus:bg-white dark:focus:bg-slate-800 dark:text-white"></div>
                         </div>
                         <div>
@@ -511,5 +511,6 @@
 </body>
 
 </html>
+
 
 
